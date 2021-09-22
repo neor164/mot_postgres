@@ -129,7 +129,7 @@ class DatabaseCreator:
         run.comment = comment
         self.session.add(run)
         resp = self.session.query(Run.id).filter(
-            Run.time_stamp == run.time_stamp).first()
+            Run.time_stamp == run.time_stamp).first()[0]
         self.session.commit()
         return resp
 
