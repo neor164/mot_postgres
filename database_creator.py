@@ -12,6 +12,7 @@ from .tables.tables_base import Base
 from glob import glob
 import re
 import numpy as np
+from datetime import datetime
 
 
 class DatabaseProps(BaseModel):
@@ -98,7 +99,7 @@ class DatabaseCreator:
         else:
             self.session.add(Detectors(name=detector_name))
             resp = self.session.query(Detectors.id).filter(
-            func.lower(Detectors.name) == detector_name.lower()).first()
+                func.lower(Detectors.name) == detector_name.lower()).first()
             self.session.commit()
 
     def upsert_detection_data(self, det: DetectionsProps):
@@ -120,6 +121,20 @@ class DatabaseCreator:
             for gt in resp:
                 det_list.append(DetectionsProps.from_orm(gt))
             return det_list
+
+    def add_run(self, detector_name: str, comment: str = None) -> int:
+        run = Run()
+        run.time_stamp = datetime.now()
+        run.detector_id = self.add_detector(detector_name)
+        run.comment = comment
+        self.session.add(run)
+        resp = self.session.query(Run.id).filter(
+            Run.time_stamp == run.time_stamp).first()
+        self.session.commit()
+        return resp
+
+    def remove_run(self, run_id: int):
+        self.session.query(Run).filter(Run.id == run_id).delete()
 
 
 if __name__ == '__main__':
