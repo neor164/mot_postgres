@@ -92,12 +92,13 @@ class DatabaseCreator:
 
     def add_detector(self, detector_name: str) -> int:
         resp = self.session.query(Detectors.id).filter(
-            func.lower(Detectors) == detector_name.lower).first()
+            func.lower(Detectors.name) == detector_name.lower()).first()
         if resp is not None:
-            return detector_name
+            return resp.id
         else:
-            detector = Detectors(name=detector_name)
-            self.session.add(detector)
+            self.session.add(Detectors(name=detector_name))
+            resp = self.session.query(Detectors.id).filter(
+            func.lower(Detectors.name) == detector_name.lower()).first()
             self.session.commit()
 
     def upsert_detection_data(self, det: DetectionsProps):
