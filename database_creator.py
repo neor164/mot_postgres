@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 from .tables.ground_truth_tables import GroundTruth, GroundTruthProps, Scenarios, ScenatioProps
 from .tables.detector_tables import Detections, Detectors, DetectionsProps
-from .tables.run_tables import RunProps
+from .tables.run_tables import Run
 from pydantic import BaseModel
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql.functions import func
