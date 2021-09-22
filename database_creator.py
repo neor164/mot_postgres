@@ -2,13 +2,13 @@ from typing import Optional, List
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
-from tables.ground_truth_tables import GroundTruth, GroundTruthProps, Scenarios, ScenatioProps
-from tables.detector_tables import Detections, Detectors, DetectionsProps
-from tables.run_tables import RunProps
+from .tables.ground_truth_tables import GroundTruth, GroundTruthProps, Scenarios, ScenatioProps
+from .tables.detector_tables import Detections, Detectors, DetectionsProps
+from .tables.run_tables import RunProps
 from pydantic import BaseModel
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql.functions import func
-from tables.tables_base import Base
+from .tables.tables_base import Base
 from glob import glob
 import re
 import numpy as np
