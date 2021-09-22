@@ -137,6 +137,7 @@ class DatabaseCreator:
         self.session.query(Run).filter(Run.id == run_id).delete()
 
 
+dbc = DatabaseCreator()
 if __name__ == '__main__':
 
     dc = DatabaseCreator()
