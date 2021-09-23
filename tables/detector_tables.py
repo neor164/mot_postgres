@@ -31,6 +31,9 @@ class DetectionsProps(BaseModel):
     height: Optional[float]
     confidance: Optional[float]
 
+    class Config:
+        orm_mode = True
+
 
 class Detectors(Base):
     __tablename__ = "detectors"
