@@ -2,6 +2,7 @@ from typing import Optional, List
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.sql.selectable import subquery
 from .tables.ground_truth_tables import GroundTruth, GroundTruthProps, Scenarios, ScenatioProps
 from .tables.detector_tables import Detections, Detectors, DetectionsProps
 from .tables.run_tables import Run
@@ -121,6 +122,13 @@ class DatabaseCreator:
             for gt in resp:
                 det_list.append(DetectionsProps.from_orm(gt))
             return det_list
+
+    def get_scenario_name_by_id(self, scenario_id: int) -> Optional[str]:
+
+        resp = self.session.query(Scenarios.name).filter(
+            Scenarios.id == scenario_id).first()
+        if resp is not None:
+            return resp[0]
 
     def add_run(self, detector_name: str, comment: str = None) -> int:
         run = Run()
