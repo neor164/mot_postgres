@@ -1,3 +1,4 @@
+from mot_postgres.tables.tracker_tables import Trackers
 from typing import Optional, List, Dict
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -181,6 +182,25 @@ class DatabaseCreator:
                 "width": stmt.excluded.width,
                 "height": stmt.excluded.height,
                 "confidance": stmt.excluded.confidance
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
+    def upsert_bulk_kalman(self, kalman_list: List[dict]):
+
+        stmt = insert(Trackers).values(kalman_list)
+        stmt = stmt.on_conflict_do_update(
+            # Let's use the constraint name which was visible in the original posts error msg
+            index_elements=['tracker_id',
+                            'frame_id', 'scenario_id', 'run_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "kalman_min_x": stmt.excluded.kalman_min_x,
+                "kalman_min_y": stmt.excluded.kalman_min_y,
+                "kalman_width": stmt.excluded.kalman_width,
+                "kalman_height": stmt.excluded.kalman_height,
             }
         )
         self.session.execute(stmt)
