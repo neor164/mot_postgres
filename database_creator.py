@@ -23,7 +23,6 @@ from pathlib import Path
 
 class DatabaseProps(BaseModel):
     username: str = 'postgres'
-    password: str = 'neor123'
     name: str = 'postgres'
     port: int = 6666
     ip_address = '127.0.0.1'
@@ -32,7 +31,7 @@ class DatabaseProps(BaseModel):
 class DatabaseCreator:
     def __init__(self, db_props: DatabaseProps = DatabaseProps()) -> None:
         self.engine: Engine = create_engine(
-            f"postgresql://{db_props.username}:{db_props.password}@{db_props.ip_address}:{db_props.port}/{db_props.name}")
+            f"postgresql://{db_props.username}:@{db_props.ip_address}:{db_props.port}/{db_props.name}")
         self.session: Session = Session(self.engine)
         self.base = Base
         self.base.metadata.create_all(self.engine)
