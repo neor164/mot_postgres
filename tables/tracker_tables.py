@@ -13,7 +13,7 @@ class Trackers(Base):
     run_id = Column(Integer,  ForeignKey('run.id'))
     frame_id = Column(Integer)
     tracker_id = Column(Integer)
-    target_index = Column(Integer,  ForeignKey('detectors.target_index'))
+    target_index = Column(Integer)
     min_x = Column(Float)
     min_y = Column(Float)
     width = Column(Float)
