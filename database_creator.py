@@ -205,6 +205,26 @@ class DatabaseCreator:
         self.session.execute(stmt)
         self.session.commit()
 
+    def upsert_bulk_tracker(self, kalman_list: List[dict]):
+
+        stmt = insert(Trackers).values(kalman_list)
+        stmt = stmt.on_conflict_do_update(
+            # Let's use the constraint name which was visible in the original posts error msg
+            index_elements=['tracker_id',
+                            'frame_id', 'scenario_id', 'run_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "target_index": stmt.target_index,
+                "min_x": stmt.excluded.min_x,
+                "min_y": stmt.excluded.min_y,
+                "width": stmt.excluded.width,
+                "height": stmt.excluded.height,
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
     def remove_run(self, run_id: int):
         self.session.query(Run).filter(Run.id == run_id).delete()
 
