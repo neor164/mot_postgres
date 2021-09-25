@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
@@ -7,6 +7,7 @@ from .tables.ground_truth_tables import GroundTruth, GroundTruthProps, Scenarios
 from .tables.detector_tables import Detections, Detectors, DetectionsProps
 from .tables.run_tables import Run
 from pydantic import BaseModel
+from sqlalchemy.sql import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql.functions import func
 from .tables.tables_base import Base
@@ -14,6 +15,9 @@ from glob import glob
 import re
 import numpy as np
 from datetime import datetime
+import os
+import pandas as pd
+from pathlib import Path
 
 
 class DatabaseProps(BaseModel):
@@ -44,6 +48,12 @@ class DatabaseCreator:
 
         resp = self.session.query(Scenarios).filter(
             Scenarios.name == scenario_name).first()
+        if resp is not None:
+            return ScenatioProps.from_orm(resp)
+
+    def get_scenario_props_by_id(self, scenario_id: int) -> Optional[ScenatioProps]:
+        resp = self.session.query(Scenarios).filter(
+            Scenarios.id == scenario_id).first()
         if resp is not None:
             return ScenatioProps.from_orm(resp)
 
@@ -111,17 +121,25 @@ class DatabaseCreator:
         self.session.execute(do_update_stmt)
         self.session.commit()
 
-    def get_detections_by_scenario_and_frame(self, name: str, frame_id: int) -> Optional[List[DetectionsProps]]:
+    def get_detections_by_scenario_and_frame(self, run_id: int, name: str, frame_id: int) -> Optional[List[DetectionsProps]]:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == name.lower()).scalar_subquery()
 
         resp = self.session.query(Detections).filter(
-            Detections.scenario_id == subquery, Detections.frame_id == frame_id).all()
+            Detections.scenario_id == subquery, Detections.frame_id == frame_id, Detections.run_id == run_id).all()
         if resp is not None:
             det_list = []
             for gt in resp:
                 det_list.append(DetectionsProps.from_orm(gt))
             return det_list
+
+    def get_detection_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(Detections).filter(
+            Detections.scenario_id == subquery, Detections.frame_id == frame_id, Detections.run_id == run_id)
+        return pd.read_sql(resp.statement, self.engine)
 
     def get_scenario_name_by_id(self, scenario_id: int) -> Optional[str]:
 
@@ -129,6 +147,11 @@ class DatabaseCreator:
             Scenarios.id == scenario_id).first()
         if resp is not None:
             return resp[0]
+
+    def get_scenarios_from_challenge(self, challenge: str) -> Optional[List[str]]:
+
+        return self.session.query(Scenarios.name).filter(
+            Scenarios.source == challenge).all()
 
     def add_run(self, detector_name: str, comment: str = None) -> int:
         run = Run()
@@ -141,11 +164,53 @@ class DatabaseCreator:
         self.session.commit()
         return resp
 
+    def upsert_bulk_detections(self, detections_list: List[dict]):
+
+        # Prepare all the values that should be "upserted" to the DB
+
+        stmt = insert(Detections).values(detections_list)
+        stmt = stmt.on_conflict_do_update(
+            # Let's use the constraint name which was visible in the original posts error msg
+            index_elements=['target_index',
+                            'frame_id', 'scenario_id', 'run_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "min_x": stmt.excluded.min_x,
+                "min_y": stmt.excluded.min_y,
+                "width": stmt.excluded.width,
+                "height": stmt.excluded.height,
+                "confidance": stmt.excluded.confidance
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
     def remove_run(self, run_id: int):
         self.session.query(Run).filter(Run.id == run_id).delete()
 
+    def export_detection_csv_by_challenge_and_run_id(self,  challenge: str, save_path: str, run_id: int = 1):
+        scenarios = self.get_scenarios_from_challenge(challenge)
+        if scenarios is not None:
+            data_dir = os.path.join(save_path, challenge)
+            Path(data_dir).mkdir(
+                parents=True, exist_ok=True)
+            for scenario in scenarios:
+                scenario_id = self.get_scenario_props_by_name(scenario[0])
+                if scenario_id is not None:
+                    scenario_id = scenario_id.id
 
-dbc = DatabaseCreator()
+                query = select(Detections.frame_id, Detections.target_index,
+                               Detections.min_x, Detections.min_y, Detections.width, Detections.height,
+                               Detections.confidance, -1, -1, -1).where(
+                    Detections.run_id == run_id, Detections.scenario_id == scenario_id)
+
+                table = pd.read_sql(query, self.engine, index_col=None)
+                path_to_txt = os.path.join(data_dir, scenario[0] + '.txt')
+                table.to_csv(path_to_txt, header=False,
+                             index=False)
+
+
 if __name__ == '__main__':
 
     dc = DatabaseCreator()

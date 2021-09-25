@@ -1,4 +1,3 @@
-from pydantic.types import OptionalIntFloatDecimal
 from sqlalchemy import Column, Integer, Float, String, ForeignKey, Boolean
 from sqlalchemy import PrimaryKeyConstraint
 from .tables_base import Base
