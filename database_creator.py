@@ -133,11 +133,11 @@ class DatabaseCreator:
                 det_list.append(DetectionsProps.from_orm(gt))
             return det_list
 
-    def get_grond_truth_by_frame_table(self, scenario_name: str, frame_id: int) -> pd.DataFrame:
+    def get_ground_truth_by_frame_table(self, scenario_name: str, frame_id: int) -> pd.DataFrame:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
-        resp = self.session.query(GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height).filter(
+        resp = self.session.query(GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height, GroundTruth.visibility).filter(
             GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id)
 
         return pd.read_sql(resp.statement, self.engine)
