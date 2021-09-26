@@ -137,7 +137,7 @@ class DatabaseCreator:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
-        resp = self.session.query(GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height, GroundTruth.visibility).filter(
+        resp = self.session.query(GroundTruth.target_id, GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height, GroundTruth.visibility).filter(
             GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id)
 
         return pd.read_sql(resp.statement, self.engine)
