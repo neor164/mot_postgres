@@ -133,12 +133,37 @@ class DatabaseCreator:
                 det_list.append(DetectionsProps.from_orm(gt))
             return det_list
 
+    def get_grond_truth_by_frame_table(self, scenario_name: str, frame_id: int) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height).filter(
+            GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id)
+
+        return pd.read_sql(resp.statement, self.engine)
+
     def get_detection_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
         resp = self.session.query(Detections).filter(
             Detections.scenario_id == subquery, Detections.frame_id == frame_id, Detections.run_id == run_id)
+        return pd.read_sql(resp.statement, self.engine)
+
+    def get_kalman_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(Trackers.tracker_id, Trackers.target_index,  Trackers.kalman_min_x, Trackers.kalman_min_y, Trackers.kalman_width, Trackers.kalman_height).filter(
+            Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id)
+        return pd.read_sql(resp.statement, self.engine)
+
+    def get_tracker_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(Trackers.tracker_id, Trackers.target_index,  Trackers.min_x, Trackers.min_y, Trackers.width, Trackers.height).filter(
+            Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id)
         return pd.read_sql(resp.statement, self.engine)
 
     def get_scenario_name_by_id(self, scenario_id: int) -> Optional[str]:
