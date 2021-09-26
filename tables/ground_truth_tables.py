@@ -16,7 +16,7 @@ class GroundTruth(Base):
     min_y = Column(Float)
     width = Column(Float)
     height = Column(Float)
-    is_hidden = Column(Boolean)
+    visibility = Column(Float)
 
 
 class GroundTruthProps(BaseModel):

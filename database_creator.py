@@ -189,6 +189,27 @@ class DatabaseCreator:
         self.session.commit()
         return resp
 
+    def upsert_bulk_ground_truth(self, ground_truth: List[dict]):
+
+        # Prepare all the values that should be "upserted" to the DB
+
+        stmt = insert(GroundTruth).values(ground_truth)
+        stmt = stmt.on_conflict_do_update(
+            # Let's use the constraint name which was visible in the original posts error msg
+            index_elements=['target_id', 'frame_id', 'scenario_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "min_x": stmt.excluded.min_x,
+                "min_y": stmt.excluded.min_y,
+                "width": stmt.excluded.width,
+                "height": stmt.excluded.height,
+                "visibility": stmt.excluded.visibility
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
     def upsert_bulk_detections(self, detections_list: List[dict]):
 
         # Prepare all the values that should be "upserted" to the DB
