@@ -7,4 +7,5 @@ class Run(Base):
     id = Column(Integer, primary_key=True)
     detector_id = Column(Integer, ForeignKey('detectors.id'))
     time_stamp = Column(DateTime)
+    confidance = Column(Float(12, 2))
     comment = Column(String(2000))

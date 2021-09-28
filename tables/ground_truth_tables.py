@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, Boolean, Numeric
 from sqlalchemy import PrimaryKeyConstraint
 from .tables_base import Base
 from pydantic import BaseModel
@@ -16,7 +16,7 @@ class GroundTruth(Base):
     min_y = Column(Float)
     width = Column(Float)
     height = Column(Float)
-    visibility = Column(Float)
+    visibility = Column(Float(12, 2))
 
 
 class GroundTruthProps(BaseModel):
@@ -27,7 +27,7 @@ class GroundTruthProps(BaseModel):
     min_y: Optional[float]
     width: Optional[float]
     height: Optional[float]
-    is_hidden: Optional[bool]
+    visibility: Optional[bool]
 
     class Config:
         orm_mode = True

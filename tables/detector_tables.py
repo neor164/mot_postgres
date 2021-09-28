@@ -2,6 +2,7 @@ from typing import Optional
 from sqlalchemy import Column, Integer, Float, String, ForeignKey
 from sqlalchemy import PrimaryKeyConstraint
 from pydantic import BaseModel
+from sqlalchemy.sql.sqltypes import FLOAT
 from .tables_base import Base
 
 
@@ -17,7 +18,7 @@ class Detections(Base):
     min_y = Column(Float)
     width = Column(Float)
     height = Column(Float)
-    confidance = Column(Float)
+    confidance = Column(Float(12, 2))
 
 
 class DetectionsProps(BaseModel):
@@ -39,3 +40,18 @@ class Detectors(Base):
     __tablename__ = "detectors"
     id = Column(Integer, primary_key=True)
     name = Column(String(60))
+
+
+class DetectionsFrameEval(Base):
+    __tablename__ = "detections_frame_eval"
+    __table_args__ = (PrimaryKeyConstraint('scenario_id', 'run_id',
+                                           'frame_id', 'confidance_level'),)
+    scenario_id = Column(Integer, ForeignKey('scenarios.id'))
+    run_id = Column(Integer,  ForeignKey('run.id'))
+    frame_id = Column(Integer)
+    confidance_level = Column(Float(12, 2))
+    TP = Column(Integer)
+    FP = Column(Integer)
+    FN = Column(Integer)
+    Recall = Column(Float)
+    Precision = Column(Float)
