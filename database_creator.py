@@ -107,7 +107,7 @@ class DatabaseCreator:
         subquery = self.session.query(Scenarios.id).filter(
             Scenarios.source == challenge).scalar_subquery()
         resp = self.session.query(Detections.scenario_id).filter(
-            Detections.scenario_id.in_(subquery))
+            Detections.scenario_id.in_(subquery)).all()
         if len(resp):
             return True
         else:
