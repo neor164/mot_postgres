@@ -103,6 +103,16 @@ class DatabaseCreator:
                 self.session.execute(do_update_stmt)
                 self.session.commit()
 
+    def check_has_evaluated(self, run_id: int, challenge: str) -> bool:
+        subquery = self.session.query(Scenarios.id).filter(
+            Scenarios.source == challenge).scalar_subquery()
+        resp = self.session.query(Detections.scenario_id).filter(
+            Detections.scenario_id.in_(subquery))
+        if len(resp):
+            return True
+        else:
+            return False
+
     def get_ground_truth_detection_by_scenario_and_frame(self, scenario_name: str, frame_id: int) -> Optional[List[GroundTruthProps]]:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
