@@ -1,4 +1,4 @@
-from mot_postgres.tables.tracker_tables import Trackers
+from .tables.tracker_tables import Trackers
 from typing import Optional, List, Dict
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import Session
