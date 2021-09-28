@@ -46,6 +46,9 @@ class DatabaseCreator:
         self.session.execute(do_update_stmt)
         self.session.commit()
 
+    def get_scnario_names_by_challenge(self, challenge: str) -> List[str]:
+        return [f.name for f in self.session.query(Scenarios)]
+
     def get_scenario_props_by_name(self, scenario_name: str) -> Optional[ScenatioProps]:
 
         resp = self.session.query(Scenarios).filter(
