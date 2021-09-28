@@ -46,7 +46,10 @@ class DatabaseCreator:
         self.session.execute(do_update_stmt)
         self.session.commit()
 
-    def get_scnario_names_by_challenge(self, challenge: str) -> List[str]:
+    def get_challenges(self):
+        return [f.source for f in self.session.query(Scenarios).filter()]
+
+    def get_scenario_names_by_challenge(self, challenge: str) -> List[str]:
         return [f.name for f in self.session.query(Scenarios).filter(func.lower(Scenarios.source) == challenge.lower())]
 
     def get_scenario_props_by_name(self, scenario_name: str) -> Optional[ScenatioProps]:
@@ -228,11 +231,6 @@ class DatabaseCreator:
             Scenarios.id == scenario_id).first()
         if resp is not None:
             return resp[0]
-
-    def get_scenarios_from_challenge(self, challenge: str) -> Optional[List[str]]:
-
-        return self.session.query(Scenarios.name).filter(
-            Scenarios.source == challenge).all()
 
     def add_run(self, detector_name: str, comment: str = None) -> int:
         run = Run()
