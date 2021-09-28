@@ -47,7 +47,7 @@ class DatabaseCreator:
         self.session.commit()
 
     def get_challenges(self):
-        return [f.source for f in self.session.query(Scenarios).filter()]
+        return [f.source for f in self.session.query(Scenarios).distinct(Scenarios.name)]
 
     def get_scenario_names_by_challenge(self, challenge: str) -> List[str]:
         return [f.name for f in self.session.query(Scenarios).filter(func.lower(Scenarios.source) == challenge.lower())]
