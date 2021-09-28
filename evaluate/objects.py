@@ -2,7 +2,6 @@ import numpy as np
 from pydantic import BaseModel, validator
 from typing import List, Optional, Tuple
 from scipy.optimize import linear_sum_assignment
-from lap import lapjv
 
 
 class CostMatrix(BaseModel):
