@@ -8,7 +8,7 @@ from .objects import CostMatrix
 from typing import Dict
 
 
-def calculate_cost_matrix(bboxes1: np.ndarray, bboxes2: np.ndarray) -> np.ndarray:
+def calculate_similarity_matrix(bboxes1: np.ndarray, bboxes2: np.ndarray) -> np.ndarray:
     """ Calculates the IOU (intersection over union) between two arrays of boxes.
     Allows variable box format 'xywh' .
     If do_ioa (intersection over area) , then calculates the intersection over the area of boxes1 - this is commonly
@@ -40,4 +40,4 @@ def calculate_cost_matrix(bboxes1: np.ndarray, bboxes2: np.ndarray) -> np.ndarra
     union[union <= 0 + np.finfo('float').eps] = 1
     ious = intersection / union
 
-    return - ious
+    return ious

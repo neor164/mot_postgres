@@ -1,4 +1,4 @@
-from .tables.tracker_tables import Trackers
+from .tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, Trackers, TargetFrameEval, TrackerEval, TrackerScenarioEval
 from typing import Optional, List, Dict
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import Session
@@ -235,11 +235,30 @@ class DatabaseCreator:
 
         return pd.read_sql(s, self.engine)
 
+    def get_target_frame_eval_table_by_frame(self, run_id, scenario_name: str, frame_id: int) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(TargetFrameEval).filter(
+            TargetFrameEval.scenario_id == subquery, TargetFrameEval.frame_id == frame_id, TargetFrameEval.run_id == run_id)
+
+        return pd.read_sql(resp, self.engine)
+
     def get_scenario_name_by_id(self, scenario_id: int) -> Optional[str]:
 
         resp = self.session.query(Scenarios.name).filter(
             Scenarios.id == scenario_id).first()
         if resp is not None:
+            return resp[0]
+
+    def get_previous_match_by_frame_and_id(self, run_id: int, scenario_name: str, frame_id: int, target_id: int) -> Optional[int]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(TargetFrameEval.tracker_id).filter(
+            TargetFrameEval.scenario_id == subquery, TargetFrameEval.frame_id < frame_id, TargetFrameEval.run_id == run_id, TargetFrameEvalProps.target_id == target_id, TargetFrameEvalProps.tracker_id != None).limit(1).all()
+
+        if len(resp):
             return resp[0]
 
     def add_run(self, detector_name: str, comment: str = None) -> int:
@@ -345,6 +364,21 @@ class DatabaseCreator:
                 "Recall": stmt.excluded.Recall,
                 "Precision": stmt.excluded.Precision,
 
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
+    def upsert_bulk_target_frame_eval_props(self, target_frame_eval: List[dict]):
+        stmt = insert(TargetFrameEval).values(target_frame_eval)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['scenario_id', 'run_id',
+                            'frame_id', 'target_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "tracker_id": stmt.excluded.tracker_id,
+                "iou": stmt.excluded.iou,
             }
         )
         self.session.execute(stmt)
