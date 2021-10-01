@@ -1,7 +1,7 @@
 from .database_creator import DatabaseProps, DatabaseCreator
 from typing import Dict, Optional, Union
 from .evaluate.objects import CostMatrix
-from tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, TrackerScenarioEvalProps
+from .tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, TrackerScenarioEvalProps
 from .evaluate.preprocessing import calculate_similarity_matrix
 import numpy as np
 
