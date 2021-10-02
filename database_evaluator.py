@@ -76,46 +76,54 @@ class DatabaseEvaluator:
             tep.FP = pt.shape[0]
             return tep.dict()
         bb1 = gt.values[:, 1:-1]
-        bb2 = pt.values[:, 4:-1]
+        bb2 = pt.values[:, 2:]
         sim_mat = calculate_similarity_matrix(bb1, bb2)
 
-        tfet = self.database.get_target_frame_eval_table_by_frame(
-            run_id, scenario_name, frame_id - 1)
-        if tfet.empty:
-            prev_timestep_tracker_id = np.nan * np.zeros(gt.shape[0])
-        else:
-            prev_timestep_tracker_id = tfet['tracker_id'].fillna(value=np.nan)
-
+        # tfet = self.database.get_target_frame_eval_table_by_frame(
+        #     run_id, scenario_name, frame_id - 1)
+        prev_timestep_tracker_id = [None] * gt.shape[0]
+        # if not tfet.empty:
+        tracker_ids = np.array(self.database.get_tracker_ids_matched_to_target_ids(
+            run_id, scenario_name, frame_id - 1, list(gt['target_id'])))
+        # prev_timestep_tracker_id = np.nan * np.zeros(gt.shape[0])
+        # temp = tfet['tracker_id'].fillna(value=np.nan).to_numpy()
+        prev_timestep_tracker_id[:len(tracker_ids)] = tracker_ids
+        prev_timestep_tracker_id = np.array(prev_timestep_tracker_id)
         score_mat = (pt['tracker_id'][np.newaxis, :] ==
                      prev_timestep_tracker_id[:, np.newaxis])
-        score_mat[sim_mat < self.threshold - np.finfo('float').eps] = 0
+        score_mat[sim_mat < self.threshold + np.finfo('float').eps] = 0
         score_mat = 1000 * score_mat + sim_mat
         cost_matrix_object = CostMatrix(
             cost_matrix=-score_mat, ground_truth_ids=gt['target_id'], prediction_ids=pt['tracker_id'])
 
         matched_predition, matched_objects, unmatched_prediction, unmatched_detection = cost_matrix_object.match()
         target_frame_eval_list = []
+
         for target_id in gt['target_id']:
             tfep = TargetFrameEvalProps(
                 scenario_id=scenario_id, run_id=run_id, frame_id=frame_id, target_id=target_id)
-            tfep.tracker_id = matched_predition[matched_objects == target_id]
+            tracker_id = matched_predition[matched_objects == target_id]
+
             tid = self.database.get_previous_match_by_frame_and_id(
                 run_id, scenario_name, frame_id, target_id)
-            if tfep.tracker_id is not None:
-                tfep.iou = sim_mat[matched_objects == target_id,
-                                   matched_predition == matched_objects]
-
+            if tracker_id:
+                tracker_id = int(tracker_id)
+                tfep.iou = float(sim_mat[np.argwhere(matched_objects == target_id),
+                                         np.argwhere(matched_predition == tracker_id)])
+                tfep.tracker_id = tracker_id
                 if tid is not None and tid != tfep.tracker_id:
                     tep.IDSW += 1
-            elif tid is None and tfep.tracker_id is not None:
+
+            elif tid is not None and tfep.tracker_id is None:
                 tep.Frag += 1
             target_frame_eval_list.append(tfep.dict())
 
         self.database.upsert_bulk_target_frame_eval_props(
             target_frame_eval_list)
+
         tep.TP = len(matched_predition)
         tep.FP = len(unmatched_prediction)
         tep.FN = len(unmatched_detection)
         tep.GT = gt.shape[0]
 
-        return tep
+        return tep.dict()

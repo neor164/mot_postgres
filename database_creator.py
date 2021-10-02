@@ -242,7 +242,40 @@ class DatabaseCreator:
         resp = self.session.query(TargetFrameEval).filter(
             TargetFrameEval.scenario_id == subquery, TargetFrameEval.frame_id == frame_id, TargetFrameEval.run_id == run_id)
 
-        return pd.read_sql(resp, self.engine)
+        return pd.read_sql(resp.statement, self.engine)
+
+    def get_tracker_eval_by_frame_table(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(TrackerEval).filter(
+            TrackerEval.scenario_id == subquery, TrackerEval.frame_id == frame_id, TrackerEval.run_id == run_id)
+
+        return pd.read_sql(resp.statement, self.engine)
+
+    def get_tracker_eval_by_scenario(self, run_id: int, scenario_name: str):
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(
+            func.sum(TrackerEval.TP).label('TP'),
+            func.sum(TrackerEval.FP).label('FP'),
+            func.sum(TrackerEval.FN).label('FN'),
+            func.sum(TrackerEval.GT).label('GT'),
+            func.sum(TrackerEval.IDSW).label('IDSW'),
+            func.sum(TrackerEval.Frag).label('Frag')
+        ).filter(
+            TrackerEval.scenario_id == subquery, TrackerEval.run_id == run_id).group_by(TrackerEval.scenario_id).\
+            order_by(TrackerEval.scenario_id.asc()).subquery()
+
+        s = select([resp.c.TP, resp.c.FP, resp.c.FN, resp.c.GT, resp.c.IDSW, resp.c.Frag, case(
+            [(resp.c.FN + resp.c.TP > 0, cast(resp.c.TP, Float)/cast((resp.c.FN + resp.c.TP), Float))], else_=None).label('Recall'),
+            case(
+            [(resp.c.FP + resp.c.TP > 0, cast(resp.c.TP, Float)/cast(resp.c.FP + resp.c.TP, Float))], else_=None).label('Precision'),
+            (1 - cast(resp.c.FN + resp.c.FP + resp.c.IDSW, Float) /
+             cast(resp.c.GT, Float)).label('MOTA')
+        ])
+        return pd.read_sql(s, self.engine)
 
     def get_scenario_name_by_id(self, scenario_id: int) -> Optional[str]:
 
@@ -256,9 +289,9 @@ class DatabaseCreator:
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
         resp = self.session.query(TargetFrameEval.tracker_id).filter(
-            TargetFrameEval.scenario_id == subquery, TargetFrameEval.frame_id < frame_id, TargetFrameEval.run_id == run_id, TargetFrameEvalProps.target_id == target_id, TargetFrameEvalProps.tracker_id != None).limit(1).all()
+            TargetFrameEval.scenario_id == subquery, TargetFrameEval.frame_id < frame_id, TargetFrameEval.run_id == run_id, TargetFrameEval.target_id == target_id, TargetFrameEval.tracker_id != None).limit(1).first()
 
-        if len(resp):
+        if resp is not None:
             return resp[0]
 
     def add_run(self, detector_name: str, comment: str = None) -> int:
@@ -350,6 +383,16 @@ class DatabaseCreator:
         self.session.execute(stmt)
         self.session.commit()
 
+    def get_tracker_ids_matched_to_target_ids(self, run_id: int, scenario_name: str, frame_id: int, target_ids: List[int]) -> Optional[int]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        query = self.session.query(TargetFrameEval).filter(
+            TargetFrameEval.run_id == run_id, TargetFrameEval.scenario_id == subquery, TargetFrameEval.frame_id == frame_id,
+            TargetFrameEval.target_id.in_(target_ids)
+        )
+        return [q.tracker_id for q in query]
+
     def upsert_bulk_detector_frame_eval_data(self,  detector_eval_list: List[dict]):
         stmt = insert(DetectionsFrameEval).values(detector_eval_list)
         stmt = stmt.on_conflict_do_update(
@@ -364,6 +407,26 @@ class DatabaseCreator:
                 "Recall": stmt.excluded.Recall,
                 "Precision": stmt.excluded.Precision,
 
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
+    def upsert_bulk_tracker_eval_data(self,  detector_eval_list: List[dict]):
+
+        stmt = insert(TrackerEval).values(detector_eval_list)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['scenario_id', 'run_id',
+                            'frame_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "TP": stmt.excluded.TP,
+                "FP": stmt.excluded.FP,
+                "FN": stmt.excluded.FN,
+                "GT": stmt.excluded.GT,
+                "IDSW": stmt.excluded.IDSW,
+                "Frag": stmt.excluded.Frag
             }
         )
         self.session.execute(stmt)
