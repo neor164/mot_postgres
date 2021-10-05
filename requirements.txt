@@ -1,0 +1,8 @@
+jupyterlab
+sqlalchemy
+psycopg2-binary
+numpy
+opencv-python
+pydantic
+matplotlib
+pandas

@@ -273,7 +273,7 @@ class DatabaseCreator:
             case(
             [(resp.c.FP + resp.c.TP > 0, cast(resp.c.TP, Float)/cast(resp.c.FP + resp.c.TP, Float))], else_=None).label('Precision'),
             (1 - cast(resp.c.FN + resp.c.FP + resp.c.IDSW, Float) /
-             cast(resp.c.GT, Float)).label('MOTA')
+             case([(resp.c.GT > 0, cast(resp.c.GT, Float))],  else_=None)).label('MOTA')
         ])
         return pd.read_sql(s, self.engine)
 
