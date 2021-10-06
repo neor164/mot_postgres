@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, Boolean, Numeric
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, Boolean
 from sqlalchemy import PrimaryKeyConstraint
 from .tables_base import Base
 from pydantic import BaseModel
-from typing import Optional
+from typing import Counter, Optional
+from enum import Enum
 
 
 class GroundTruth(Base):
@@ -16,7 +17,9 @@ class GroundTruth(Base):
     min_y = Column(Float)
     width = Column(Float)
     height = Column(Float)
+    type_id = Column(Integer)
     visibility = Column(Float(12, 2))
+    is_valid = Column(Boolean)
 
 
 class GroundTruthProps(BaseModel):
@@ -27,7 +30,9 @@ class GroundTruthProps(BaseModel):
     min_y: Optional[float]
     width: Optional[float]
     height: Optional[float]
-    visibility: Optional[bool]
+    visibility: Optional[float]
+    is_valid: Optional[bool]
+    type_id: Optional[int]
 
     class Config:
         orm_mode = True
@@ -55,3 +60,19 @@ class ScenatioProps(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class TargetTypes(Enum):
+    Pedestrian = 1
+    Person_on_vehicle = 2
+    Car = 3
+    Bicycle = 4
+    Motorbike = 5
+    Non_motorized_vehicle = 6
+    Static_person = 7
+    Distractor = 8
+    Occluder = 9
+    Occluder_on_the_ground = 10
+    Occluder_full = 11
+    Reflection = 12
+    Crowd = 13

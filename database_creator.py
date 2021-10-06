@@ -76,33 +76,6 @@ class DatabaseCreator:
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
         return [r.frame_id for r in self.session.query(GroundTruth.frame_id).distinct(GroundTruth.frame_id).filter(GroundTruth.scenario_id == subquery)]
 
-    def update_ground_truth(self):
-        pattern = 'gt_data/*/train/*/gt/gt.txt'
-        # sequence_pattern = 'gt_data/(.*?)Labels/train/'
-        scenario_pattern = 'train/(.*?)/gt'
-        dc = DatabaseCreator()
-        files = glob(pattern)
-        for idx, file in enumerate(files):
-            detections_array = np.loadtxt(file, delimiter=',', ndmin=2)
-            # sequnce_name = re.findall(sequence_pattern, file)[0]
-            scenario_name = re.findall(scenario_pattern, file)[0]
-            scp = dc.get_scenario_props_by_name(scenario_name)
-            for row in detections_array:
-                frame_id = row[0]
-                target_id = row[1]
-                tp = GroundTruthProps(frame_id=frame_id, target_id=target_id,
-                                      scenario_id=scp.id, is_hidden=row[6] == 0)
-                tp.min_x = row[2]
-                tp.min_y = row[3]
-                tp.width = row[4]
-                tp.height = row[5]
-                values = tp.dict(exclude_none=True)
-                insert_stmt = insert(GroundTruth).values(values)
-                do_update_stmt = insert_stmt.on_conflict_do_update(
-                    index_elements=['target_id', 'frame_id', 'scenario_id'], set_=values)
-                self.session.execute(do_update_stmt)
-                self.session.commit()
-
     def check_has_evaluated(self, run_id: int, challenge: str) -> bool:
         subquery = self.session.query(Scenarios.id).filter(
             Scenarios.source == challenge).scalar_subquery()
@@ -319,7 +292,9 @@ class DatabaseCreator:
                 "min_y": stmt.excluded.min_y,
                 "width": stmt.excluded.width,
                 "height": stmt.excluded.height,
-                "visibility": stmt.excluded.visibility
+                "visibility": stmt.excluded.visibility,
+                'is_valid': stmt.excluded.is_valid,
+                'type_id': stmt.excluded.type_id
             }
         )
         self.session.execute(stmt)
