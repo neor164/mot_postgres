@@ -1,5 +1,5 @@
 from .tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, Trackers, TargetFrameEval, TrackerEval, TrackerScenarioEval
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Set
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
@@ -334,6 +334,7 @@ class DatabaseCreator:
                 "kalman_min_y": stmt.excluded.kalman_min_y,
                 "kalman_width": stmt.excluded.kalman_width,
                 "kalman_height": stmt.excluded.kalman_height,
+                'track_status': stmt.excluded.track_status,
             }
         )
         self.session.execute(stmt)
@@ -348,7 +349,7 @@ class DatabaseCreator:
 
             # The columns that should be updated on conflict
             set_={
-                "target_index": stmt.target_index,
+                "target_index": stmt.excluded.target_index,
                 "min_x": stmt.excluded.min_x,
                 "min_y": stmt.excluded.min_y,
                 "width": stmt.excluded.width,
@@ -445,6 +446,24 @@ class DatabaseCreator:
                 path_to_txt = os.path.join(data_dir, scenario[0] + '.txt')
                 table.to_csv(path_to_txt, header=False,
                              index=False)
+
+    def get_kalman_frames_by_scenario(self, run_id: int, scenario_name: str) -> Set[int]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        return {f.frame_id for f in self.session.query(
+            Trackers).filter(Trackers.run_id == run_id, Trackers.scenario_id == subquery, and_(Trackers.min_x.isnot(None))).distinct(Trackers.frame_id)}
+
+    def get_kalman_predictions_where_detection_condition(self, run_id: int, scenario_name: str, has_detection: bool = False) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        if has_detection:
+            query = self.session.query(Trackers).filter(
+                Trackers.run_id == run_id, Trackers.target_index.isnot(None))
+        else:
+            query = self.session.query(Trackers).filter(
+                Trackers.run_id == run_id, Trackers.target_index.is_(None), Trackers.scenario_id == subquery)
+        return pd.read_sql(query.statement, self.engine)
 
 
 if __name__ == '__main__':

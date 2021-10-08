@@ -23,6 +23,7 @@ class Trackers(Base):
     kalman_min_y = Column(Float)
     kalman_width = Column(Float)
     kalman_height = Column(Float)
+    track_status = Column(Integer)
 
 
 class TrackersProps(BaseModel):
