@@ -62,7 +62,7 @@ class ScenatioProps(BaseModel):
         orm_mode = True
 
 
-class TargetTypes(Enum):
+class TargetTypes(object):
     Pedestrian = 1
     Person_on_vehicle = 2
     Car = 3

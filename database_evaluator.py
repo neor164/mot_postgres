@@ -60,6 +60,8 @@ class DatabaseEvaluator:
     def calculate_tracker_frame_evaluation(self, run_id: int, scenario_name: str,  frame_id: int) -> Dict[str, Union[float, int]]:
         pt = self.database.get_tracker_table_by_frame(
             run_id, scenario_name, frame_id)
+        kt = self.database.get_kalman_with_no_detection_table_by_frame(
+            run_id, scenario_name, frame_id)
         gt = self.database.get_ground_truth_by_frame_table(
             scenario_name, frame_id, visibilty_thresh=0.0)
         scenario_id = self.database.get_scenario_props_by_name(
@@ -77,6 +79,7 @@ class DatabaseEvaluator:
             return tep.dict()
         bb1 = gt.values[:, 1:-1]
         bb2 = pt.values[:, 2:]
+        bb2 = np.concatenate((bb2, kt.values[:, 1:]))
         sim_mat = calculate_similarity_matrix(bb1, bb2)
 
         # tfet = self.database.get_target_frame_eval_table_by_frame(
