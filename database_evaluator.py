@@ -43,7 +43,7 @@ class DatabaseEvaluator:
                     run_id=run_id, scenario_id=scenario_id, frame_id=frame_id, target_id=g)
                 gtdm_list.append(gtdm.dict())
 
-            return eval_dict
+            return eval_dict, gtdm_list
 
         if confidance is not None:
             eval_dict['confidance_level'] = confidance
