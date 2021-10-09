@@ -44,3 +44,11 @@ class CostMatrix(BaseModel):
             self.ground_truth_ids, matched_ground_truth)
 
         return match_predition, matched_ground_truth, unmatched_prediction, unmatched_detection
+
+    def get_index_by_gt_id(self, gid: int) -> Optional[int]:
+        if gid in self.ground_truth_ids:
+            return np.argwhere(self.ground_truth_ids == gid)
+
+    def get_index_by_pd_id(self, pid: int) -> Optional[int]:
+        if pid in self.prediction_ids:
+            return np.argwhere(self.prediction_ids == pid)

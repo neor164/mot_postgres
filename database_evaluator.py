@@ -1,7 +1,8 @@
 from .database_creator import DatabaseProps, DatabaseCreator
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 from .evaluate.objects import CostMatrix
-from .tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, TrackerScenarioEvalProps
+from .tables.tracker_tables import TargetFrameEval, TargetFrameEvalProps, TrackerEvalProps, TrackerScenarioEvalProps
+from .tables.eval_tables import GroundTruthDetectionMatchesFrame, GroundTruthDetectionMatchesFrameProps
 from .evaluate.preprocessing import calculate_similarity_matrix
 import numpy as np
 
@@ -12,7 +13,7 @@ class DatabaseEvaluator:
         self.database: DatabaseCreator = DatabaseCreator(db_props)
         self.threshold = 0.5
 
-    def calculate_detector_frame_evaluation(self, run_id: int, scenario_name: str,  frame_id: int, confidance: Optional[float] = None) -> Dict[str, Union[float, int]]:
+    def calculate_detector_frame_evaluation(self, run_id: int, scenario_name: str,  frame_id: int, confidance: Optional[float] = None) -> Tuple[Dict[str, Union[float, int]], Optional[List[dict]]]:
 
         dt = self.database.get_detection_table_by_frame(
             run_id, scenario_name, frame_id, confidance)
@@ -29,25 +30,48 @@ class DatabaseEvaluator:
             "FN": 0,
             "Recall":  0.0,
             "Precision": 0.0,
-            "confidance_level": confidance
+            "confidance_level": self.database.get_confidance_by_run_id(
+                run_id)
         }
+        gtdm_list: List[dict] = []
 
         if dt.empty:
             eval_dict["FN"] = gt.shape[0]
+
+            for g in gt['target_id']:
+                gtdm = GroundTruthDetectionMatchesFrameProps(
+                    run_id=run_id, scenario_id=scenario_id, frame_id=frame_id, target_id=g)
+                gtdm_list.append(gtdm.dict())
+
             return eval_dict
-        if eval_dict['confidance_level'] > 0:
-            eval_dict['confidance_level'] = eval_dict['confidance_level'] or self.database.get_confidance_by_run_id(
-                run_id)
+
+        if confidance is not None:
+            eval_dict['confidance_level'] = confidance
+
         if gt.empty:
             eval_dict["FP"] = dt.shape[0]
-            return eval_dict
+            return eval_dict, None
 
-        bb1 = gt.values[:, 1:-1]
+        bb1 = gt.values[:, 1:-2]
         bb2 = dt.values[:, 4:-1]
+        sim_mat = calculate_similarity_matrix(bb1, bb2)
         cost_matrix_object = CostMatrix(
-            cost_matrix=-calculate_similarity_matrix(bb1, bb2), ground_truth_ids=gt['target_id'], prediction_ids=dt['target_index'])
+            cost_matrix=-sim_mat, ground_truth_ids=gt['target_id'], prediction_ids=dt['target_index'])
 
-        match_predition, _, unmatched_prediction, unmatched_detection = cost_matrix_object.match()
+        match_predition, matched_gt, unmatched_prediction, unmatched_detection = cost_matrix_object.match()
+        for g, d in zip(matched_gt, match_predition):
+            gtdm = GroundTruthDetectionMatchesFrameProps(
+                run_id=run_id, scenario_id=scenario_id, frame_id=frame_id, target_id=g,  target_index=d)
+
+            gtdm.iou = float(sim_mat[cost_matrix_object.get_index_by_gt_id(int(g)),
+                                     cost_matrix_object.get_index_by_pd_id(int(d))])
+            gtdm_list.append(gtdm.dict())
+
+        for g in unmatched_detection:
+            gtdm = GroundTruthDetectionMatchesFrameProps(
+                run_id=run_id, scenario_id=scenario_id, frame_id=frame_id, target_id=g)
+            gtdm_list.append(gtdm.dict())
+
         eval_dict["TP"] = len(match_predition)
         eval_dict["FP"] = len(unmatched_prediction)
         eval_dict["FN"] = len(unmatched_detection)
@@ -55,7 +79,7 @@ class DatabaseEvaluator:
             (eval_dict["TP"] + eval_dict["FP"])
         eval_dict["Recall"] = eval_dict["TP"] / \
             (eval_dict["TP"] + eval_dict["FN"])
-        return eval_dict
+        return eval_dict, gtdm_list
 
     def calculate_tracker_frame_evaluation(self, run_id: int, scenario_name: str,  frame_id: int) -> Dict[str, Union[float, int]]:
         pt = self.database.get_tracker_table_by_frame(
@@ -70,6 +94,7 @@ class DatabaseEvaluator:
         #     run_id=run_id, frame_id=frame_id, scenario_id=scenario_id)
         tep = TrackerEvalProps(
             run_id=run_id, frame_id=frame_id, scenario_id=scenario_id)
+        pt = pt.append(kt)
         if pt.empty:
             tep.FN = gt.shape[0]
             return tep.dict()
@@ -77,9 +102,8 @@ class DatabaseEvaluator:
         if gt.empty:
             tep.FP = pt.shape[0]
             return tep.dict()
-        bb1 = gt.values[:, 1:-1]
+        bb1 = gt.values[:, 1:-2]
         bb2 = pt.values[:, 2:]
-        bb2 = np.concatenate((bb2, kt.values[:, 1:]))
         sim_mat = calculate_similarity_matrix(bb1, bb2)
 
         # tfet = self.database.get_target_frame_eval_table_by_frame(
@@ -111,8 +135,8 @@ class DatabaseEvaluator:
                 run_id, scenario_name, frame_id, target_id)
             if tracker_id:
                 tracker_id = int(tracker_id)
-                tfep.iou = float(sim_mat[np.argwhere(matched_objects == target_id),
-                                         np.argwhere(matched_predition == tracker_id)])
+                tfep.iou = float(sim_mat[cost_matrix_object.get_index_by_gt_id(target_id),
+                                         cost_matrix_object.get_index_by_pd_id(tracker_id)])
                 tfep.tracker_id = tracker_id
                 if tid is not None and tid != tfep.tracker_id:
                     tep.IDSW += 1

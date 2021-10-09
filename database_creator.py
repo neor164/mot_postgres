@@ -1,9 +1,9 @@
+from mot_postgres.tables.eval_tables import GroundTruthDetectionMatchesFrame
 from .tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, Trackers, TargetFrameEval, TrackerEval, TrackerScenarioEval
 from typing import Optional, List, Dict, Set
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.sql.selectable import subquery
 from .tables.ground_truth_tables import GroundTruth, GroundTruthProps, Scenarios, ScenatioProps, TargetTypes
 from .tables.detector_tables import Detections, DetectionsFrameEval, Detectors, DetectionsProps
 from .tables.run_tables import Run
@@ -138,17 +138,27 @@ class DatabaseCreator:
                 det_list.append(DetectionsProps.from_orm(gt))
             return det_list
 
-    def get_ground_truth_by_frame_table(self, scenario_name: str, frame_id: int, visibilty_thresh: Optional[float] = None, type_id: List[int] = [TargetTypes.Pedestrian]) -> pd.DataFrame:
+    def get_ground_truth_by_frame_table(self, scenario_name: str, frame_id: int, visibilty_thresh: Optional[float] = None, type_ids: List[int] = [TargetTypes.Pedestrian]) -> pd.DataFrame:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
-        if visibilty_thresh is not None:
-            resp = self.session.query(GroundTruth.target_id, GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height, GroundTruth.visibility, GroundTruth.type_id.in_(type_id)).filter(
-                GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id, GroundTruth.visibility > visibilty_thresh, GroundTruth.is_valid)
-        else:
-            resp = self.session.query(GroundTruth.target_id, GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height, GroundTruth.visibility).filter(
-                GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id,  GroundTruth.type_id(TargetTypes.Pedestrian))
+        challege = self.get_scenario_props_by_name(scenario_name)
+        if challege is not None:
+            challege = challege.source
+            if visibilty_thresh is not None:
+                if challege.lower() != 'mot15':
 
-        return pd.read_sql(resp.statement, self.engine)
+                    resp = self.session.query(GroundTruth.target_id, GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height, GroundTruth.visibility, GroundTruth.type_id.in_(type_ids)).filter(
+                        GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id, GroundTruth.visibility > visibilty_thresh, GroundTruth.is_valid)
+
+                else:
+
+                    resp = self.session.query(GroundTruth.target_id, GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height, GroundTruth.visibility, GroundTruth.type_id.in_(type_ids)).filter(
+                        GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id, GroundTruth.is_valid)
+            else:
+                resp = self.session.query(GroundTruth.target_id, GroundTruth.min_x, GroundTruth.min_y, GroundTruth.width, GroundTruth.height, GroundTruth.visibility).filter(
+                    GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id,  GroundTruth.type_id.in_(type_ids))
+
+            return pd.read_sql(resp.statement, self.engine)
 
     def get_detection_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int, confidance: Optional[float] = None) -> pd.DataFrame:
 
@@ -167,7 +177,7 @@ class DatabaseCreator:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
-        resp = self.session.query(Trackers.tracker_id, Trackers.target_index,  Trackers.kalman_min_x, Trackers.kalman_min_y, Trackers.kalman_width, Trackers.kalman_height).filter(
+        resp = self.session.query(Trackers.tracker_id, Trackers.target_index,  Trackers.kalman_min_x.label('min_x'), Trackers.kalman_min_y.label('min_y'), Trackers.kalman_width.label('width'), Trackers.kalman_height.label('height')).filter(
             Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id)
         return pd.read_sql(resp.statement, self.engine)
 
@@ -176,14 +186,14 @@ class DatabaseCreator:
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
         resp = self.session.query(Trackers.tracker_id, Trackers.target_index,  Trackers.min_x, Trackers.min_y, Trackers.width, Trackers.height).filter(
-            Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id)
+            Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id, Trackers.target_index.isnot(None))
         return pd.read_sql(resp.statement, self.engine)
 
     def get_kalman_with_no_detection_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
-        resp = self.session.query(Trackers.tracker_id, Trackers.kalman_min_x, Trackers.kalman_min_y, Trackers.kalman_width, Trackers.kalman_height).filter(
+        resp = self.session.query(Trackers.tracker_id,  Trackers.kalman_min_x.label('min_x'), Trackers.kalman_min_y.label('min_y'), Trackers.kalman_width.label('width'), Trackers.kalman_height.label('height')).filter(
             Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id, Trackers.target_index.is_(None))
         return pd.read_sql(resp.statement, self.engine)
 
@@ -393,6 +403,23 @@ class DatabaseCreator:
                 "FN": stmt.excluded.FN,
                 "Recall": stmt.excluded.Recall,
                 "Precision": stmt.excluded.Precision,
+
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
+    def upsert_bulk_gt_match_detector_frame_eval_data(self,  gt_eval_list: List[dict]):
+        stmt = insert(GroundTruthDetectionMatchesFrame).values(
+            gt_eval_list)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['scenario_id', 'run_id',
+                            'frame_id', 'target_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "target_index": stmt.excluded.target_index,
+                "iou": stmt.excluded.iou,
 
             }
         )
