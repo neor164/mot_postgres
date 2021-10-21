@@ -40,6 +40,7 @@ class TrackersProps(BaseModel):
     kalman_min_y: Optional[float]
     kalman_width: Optional[float]
     kalman_height: Optional[float]
+    track_status: Optional[int]
 
     class Config:
         orm_mode = True

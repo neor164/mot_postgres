@@ -1,5 +1,5 @@
-from mot_postgres.tables.eval_tables import GroundTruthDetectionMatchesFrame
-from .tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, Trackers, TargetFrameEval, TrackerEval, TrackerScenarioEval
+from .tables.eval_tables import GroundTruthDetectionMatchesFrame
+from .tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, Trackers, TargetFrameEval, TrackerEval, TrackerScenarioEval, TrackersProps
 from typing import Optional, List, Dict, Set
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import Session
@@ -12,7 +12,7 @@ from sqlalchemy.sql import select
 from sqlalchemy import cast, Float
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql.functions import func
-from sqlalchemy.sql.expression import case
+from sqlalchemy.sql.expression import case, distinct
 from .tables.tables_base import Base
 from glob import glob
 import re
@@ -160,6 +160,79 @@ class DatabaseCreator:
 
             return pd.read_sql(resp.statement, self.engine)
 
+    def get_frames_where_detector_misses(self, run_id: int, scenario_name: str) -> List[int]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        return [f.frame_id for f in self.session.query(GroundTruthDetectionMatchesFrame).filter(GroundTruthDetectionMatchesFrame.run_id == run_id, GroundTruthDetectionMatchesFrame.scenario_id == subquery, GroundTruthDetectionMatchesFrame.target_index.is_(None))]
+
+    def get_missed_detection_target_ids_by_frame(self, run_id: int, scenario_name: str, frame_id: int):
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        return [f.target_id for f in self.session.query(GroundTruthDetectionMatchesFrame).filter(GroundTruthDetectionMatchesFrame.run_id == run_id,
+
+                                                                                                 GroundTruthDetectionMatchesFrame.scenario_id == subquery, GroundTruthDetectionMatchesFrame.frame_id == frame_id, GroundTruthDetectionMatchesFrame.target_index.is_(None))]
+
+    def get_number_of_idsw_by_id(self, run_id: int, scenario_name: str, target_id: int) -> int:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        query = self.session.query(func.count(TargetFrameEval.target_id)).distinct().filter(TargetFrameEval.run_id == run_id, TargetFrameEval.scenario_id == subquery,
+                                                                                            TargetFrameEval.target_id == target_id).first()
+        if query:
+            return query[0]
+
+    def get_target_nth_highest_IDSW_by_scenario(self, run_id: int, scenario_name: str, n: int = 1) -> Optional[int]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        query = self.session.query(TargetFrameEval.target_id).filter(TargetFrameEval.run_id == run_id, TargetFrameEval.scenario_id == subquery) \
+            .group_by(TargetFrameEval.target_id).order_by(func.count(distinct(TargetFrameEval.tracker_id)).desc()).limit(n)
+
+        target_id_list = [f.target_id for f in query]
+        if len(target_id_list) >= n:
+            return target_id_list[n-1]
+        # def get_missed_tracking_target_ids_by_frame(self, run_id: int, scenario_name: str, frame_id: int):
+        #     subquery = self.session.query(Scenarios.id).filter(
+        #         func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        #     return [f.target_id for f in self.session.query(GroundTruthDetectionMatchesFrame).filter(GroundTruthDetectionMatchesFrame.run_id == run_id,
+        #     GroundTruthDetectionMatchesFrame.scenario_id == subquery, GroundTruthDetectionMatchesFrame.frame_id == frame_id, GroundTruthDetectionMatchesFrame.target_index.is_(None))]
+
+    def get_current_tracker_id_for_gt(self, run_id: int, scenario_name: str, frame_id: int, target_id: int) -> Optional[int]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        query = self.session.query(TargetFrameEval.tracker_id).filter(TargetFrameEval.run_id == run_id, TargetFrameEval.scenario_id == subquery,
+                                                                      TargetFrameEval.frame_id == frame_id,
+                                                                      TargetFrameEval.target_id == target_id).first()
+        if query:
+            return query[0]
+
+    def get_future_tracker_id_for_gt(self, run_id: int, scenario_name: str, frame_id: int, target_id: int, current_tracker_id: int, n: int = 20) -> List[int]:
+
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        query = self.session.query(distinct(TargetFrameEval.tracker_id)).filter(TargetFrameEval.run_id == run_id, TargetFrameEval.scenario_id == subquery,
+                                                                                TargetFrameEval.frame_id > frame_id, TargetFrameEval.frame_id <= frame_id + n,
+                                                                                TargetFrameEval.target_id == target_id, TargetFrameEval.tracker_id != current_tracker_id).all()
+        return [f[0] for f in query]
+
+    def get_first_frame_for_target_id(self, scenario_name: str, target_id: int) -> Optional[int]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        query = self.session.query(func.min(GroundTruth.frame_id)).filter(
+            GroundTruth.scenario_id == subquery, GroundTruth.target_id == target_id).first()
+        if query:
+            return query[0]
+
+    def get_last_frame_for_target_id(self, scenario_name: str, target_id: int) -> Optional[int]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        query = self.session.query(func.max(GroundTruth.frame_id)).filter(
+            GroundTruth.scenario_id == subquery, GroundTruth.target_id == target_id).first()
+        if query:
+            return query[0]
+
     def get_detection_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int, confidance: Optional[float] = None) -> pd.DataFrame:
 
         if confidance is None:
@@ -189,12 +262,30 @@ class DatabaseCreator:
             Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id, Trackers.target_index.isnot(None))
         return pd.read_sql(resp.statement, self.engine)
 
+    def get_tracker_props_by_frame_and_id(self, run_id: int, scenario_name: str, frame_id: int, tracker_id: int) -> TrackersProps:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(Trackers).filter(
+            Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id, Trackers.tracker_id == tracker_id).first()
+        if resp is not None:
+            return TrackersProps.from_orm(resp)
+
+    def get_gt_props_by_frame_and_id(self, scenario_name: str, frame_id: int, target_id: int) -> TrackersProps:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(GroundTruth).filter(
+            GroundTruth.scenario_id == subquery, GroundTruth.frame_id == frame_id,  GroundTruth.target_id == target_id).first()
+        if resp is not None:
+            return GroundTruthProps.from_orm(resp)
+
     def get_kalman_with_no_detection_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
         resp = self.session.query(Trackers.tracker_id,  Trackers.kalman_min_x.label('min_x'), Trackers.kalman_min_y.label('min_y'), Trackers.kalman_width.label('width'), Trackers.kalman_height.label('height')).filter(
-            Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id, Trackers.target_index.is_(None))
+            Trackers.scenario_id == subquery, Trackers.frame_id == frame_id, Trackers.run_id == run_id, Trackers.target_index.is_(None), Trackers.kalman_min_x.isnot(None))
         return pd.read_sql(resp.statement, self.engine)
 
     def get_detection_eval_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
@@ -277,6 +368,62 @@ class DatabaseCreator:
             Scenarios.id == scenario_id).first()
         if resp is not None:
             return resp[0]
+
+    def get_detector_error_by_scenario(self, scenario_name: str) -> pd.DataFrame:
+
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        resp = self.session.query(GroundTruth.frame_id, GroundTruth.target_id,  Detections.target_index.label('detection_id'),
+                                  Detections.confidance,  GroundTruth.min_x.label('gt_min_x'), Detections.min_x.label(
+            'dt_min_x'), GroundTruth.min_y.label('gt_min_y'), Detections.min_y.label('dt_min_y'),
+            GroundTruth.width.label('gt_width'), Detections.width.label(
+            'dt_width'), GroundTruth.height.label('gt_height'), Detections.height.label('dt_height'),
+            GroundTruthDetectionMatchesFrame.iou,
+            (GroundTruth.min_x -
+             Detections.min_x).label('diff_min_x'), (GroundTruth.min_y -
+                                                     Detections.min_y).label('diff_min_y'),
+            (GroundTruth.width -
+             Detections.width).label('diff_width'), (GroundTruth.height -
+                                                     Detections.height).label('diff_height')).filter(GroundTruth.scenario_id == subquery).order_by(GroundTruth.frame_id). \
+            join(GroundTruthDetectionMatchesFrame, and_(GroundTruth.target_id == GroundTruthDetectionMatchesFrame.target_id,
+                                                        GroundTruthDetectionMatchesFrame.scenario_id == GroundTruth.scenario_id, GroundTruthDetectionMatchesFrame.frame_id == GroundTruth.frame_id)).join(Detections,
+                                                                                                                                                                                                          and_(GroundTruthDetectionMatchesFrame.target_index == Detections.target_index,
+                                                                                                                                                                                                               Detections.scenario_id == GroundTruth.scenario_id, Detections.frame_id == GroundTruth.frame_id
+                                                                                                                                                                                                               ))
+
+        return pd.read_sql(resp.statement,  self.engine)
+
+    def get_detector_difference_by_challenge(self, challenge: str) -> pd.DataFrame:
+
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.source) == challenge.lower()).subquery()
+        resp = self.session.query(GroundTruth.scenario_id, GroundTruth.frame_id, GroundTruth.target_id,  Detections.target_index.label('detection_id'),
+                                  Detections.confidance,  GroundTruth.min_x.label('gt_min_x'), Detections.min_x.label(
+            'dt_min_x'), GroundTruth.min_y.label('gt_min_y'), Detections.min_y.label('dt_min_y'),
+            GroundTruth.width.label('gt_width'), Detections.width.label(
+            'dt_width'), GroundTruth.height.label('gt_height'), Detections.height.label('dt_height'),
+            GroundTruthDetectionMatchesFrame.iou,
+            (GroundTruth.min_x -
+             Detections.min_x).label('diff_min_x'), (GroundTruth.min_y -
+                                                     Detections.min_y).label('diff_min_y'),
+            (GroundTruth.width -
+             Detections.width).label('diff_width'), (GroundTruth.height -
+                                                     Detections.height).label('diff_height')).filter(GroundTruth.scenario_id.in_(subquery)).order_by(GroundTruth.frame_id). \
+            join(GroundTruthDetectionMatchesFrame, and_(GroundTruth.target_id == GroundTruthDetectionMatchesFrame.target_id,
+                                                        GroundTruthDetectionMatchesFrame.scenario_id == GroundTruth.scenario_id,  GroundTruthDetectionMatchesFrame.frame_id == GroundTruth.frame_id)).join(Detections,
+                                                                                                                                                                                                           and_(GroundTruthDetectionMatchesFrame.target_index == Detections.target_index,
+                                                                                                                                                                                                                Detections.scenario_id == GroundTruth.scenario_id, Detections.frame_id == GroundTruth.frame_id
+                                                                                                                                                                                                                ))
+
+        return pd.read_sql(resp.statement,  self.engine)
+
+    def get_detection_matches_by_scenario(self, scenario_name: str) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        query = self.session.query(GroundTruthDetectionMatchesFrame).filter(
+            GroundTruthDetectionMatchesFrame.scenario_id == subquery)
+        return pd.read_sql(query.statement, self.engine)
 
     def get_previous_match_by_frame_and_id(self, run_id: int, scenario_name: str, frame_id: int, target_id: int) -> Optional[int]:
         subquery = self.session.query(Scenarios.id).filter(
