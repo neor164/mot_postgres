@@ -20,7 +20,7 @@ class Detections(Base):
     width = Column(Float)
     height = Column(Float)
     confidance = Column(Float(12, 2))
-    embedding = ARRAY(FLOAT)
+    embedding = Column(ARRAY(FLOAT))
 
 
 class DetectionsProps(BaseModel):

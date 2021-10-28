@@ -25,7 +25,7 @@ class Trackers(Base):
     kalman_width = Column(Float)
     kalman_height = Column(Float)
     track_status = Column(Integer)
-    embedding = ARRAY(FLOAT)
+    embedding = Column(ARRAY(FLOAT))
 
 
 class TrackersProps(BaseModel):

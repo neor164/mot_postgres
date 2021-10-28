@@ -484,7 +484,7 @@ class DatabaseCreator:
                 "width": stmt.excluded.width,
                 "height": stmt.excluded.height,
                 "confidance": stmt.excluded.confidance,
-                "emmbeding": stmt.excluded.emmbeding,
+                "embedding": stmt.excluded.embedding,
             }
         )
         self.session.execute(stmt)
@@ -523,7 +523,7 @@ class DatabaseCreator:
                 "min_y": stmt.excluded.min_y,
                 "width": stmt.excluded.width,
                 "height": stmt.excluded.height,
-                "emmbeding": stmt.excluded.emmbeding
+                "embedding": stmt.excluded.embedding
             }
         )
         self.session.execute(stmt)
@@ -569,7 +569,7 @@ class DatabaseCreator:
             set_={
                 "target_index": stmt.excluded.target_index,
                 "iou": stmt.excluded.iou,
-                "emmbedding_distance": stmt.excluded.emmbedding_distance,
+                "embedding_distance": stmt.excluded.embedding_distance,
                 "mahalanobis_distance": stmt.excluded.mahalanobis_distance,
 
             }
@@ -607,7 +607,7 @@ class DatabaseCreator:
             set_={
                 "tracker_id": stmt.excluded.tracker_id,
                 "iou": stmt.excluded.iou,
-                "emmbedding_distance": stmt.excluded.emmbedding_distance,
+                "embedding_distance": stmt.excluded.embedding_distance,
             }
         )
         self.session.execute(stmt)
