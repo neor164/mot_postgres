@@ -1,9 +1,10 @@
 from pydantic.errors import FloatError
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, Boolean, FLOAT, LargeBinary
+from sqlalchemy import Column, Integer, Float, String, ForeignKey, Boolean, FLOAT
 from sqlalchemy import PrimaryKeyConstraint
 from .tables_base import Base
 from pydantic import BaseModel
 from typing import Optional, List
+from sqlalchemy.dialects.postgresql import ARRAY
 
 
 class Trackers(Base):
@@ -24,7 +25,7 @@ class Trackers(Base):
     kalman_width = Column(Float)
     kalman_height = Column(Float)
     track_status = Column(Integer)
-    emmbeding = LargeBinary
+    embedding = ARRAY(FLOAT)
 
 
 class TrackersProps(BaseModel):
@@ -42,7 +43,7 @@ class TrackersProps(BaseModel):
     kalman_width: Optional[float]
     kalman_height: Optional[float]
     track_status: Optional[int]
-    emmbeding: Optional[bytes]
+    embedding: Optional[List[float]]
 
     class Config:
         orm_mode = True
@@ -58,7 +59,7 @@ class TargetFrameEval(Base):
     target_id = Column(Integer)
     tracker_id = Column(Integer)
     iou = Column(Float)
-    emmbedding_distance = Column(Float(10, 8))
+    embedding_distance = Column(Float(10, 8))
 
 
 class TargetFrameEvalProps(BaseModel):
@@ -68,7 +69,7 @@ class TargetFrameEvalProps(BaseModel):
     target_id: Optional[int]
     tracker_id: Optional[int]
     iou: Optional[float]
-    emmbedding_distance: Optional[float]
+    embedding_distance: Optional[float]
 
     class Config:
         orm_mode = True

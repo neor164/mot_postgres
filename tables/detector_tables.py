@@ -1,9 +1,10 @@
 from typing import Optional, List
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, LargeBinary
+from sqlalchemy import Column, Integer, Float, String, ForeignKey
 from sqlalchemy import PrimaryKeyConstraint
 from pydantic import BaseModel
 from sqlalchemy.sql.sqltypes import FLOAT
 from .tables_base import Base
+from sqlalchemy.dialects.postgresql import ARRAY
 
 
 class Detections(Base):
@@ -19,7 +20,7 @@ class Detections(Base):
     width = Column(Float)
     height = Column(Float)
     confidance = Column(Float(12, 2))
-    emmbeding = LargeBinary
+    embedding = ARRAY(FLOAT)
 
 
 class DetectionsProps(BaseModel):
@@ -32,7 +33,7 @@ class DetectionsProps(BaseModel):
     width: Optional[float]
     height: Optional[float]
     confidance: Optional[float]
-    emmbeding: Optional[bytes]
+    embedding: Optional[List[float]]
 
     class Config:
         orm_mode = True
