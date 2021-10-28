@@ -15,6 +15,8 @@ class GroundTruthDetectionMatchesFrame(Base):
     target_id = Column(Integer)
     target_index = Column(Integer)
     iou = Column(Float(10, 2))
+    emmbedding_distance = Column(Float(10, 8))
+    mahalanobis_distance = Column(Float(16, 8))
 
 
 class GroundTruthDetectionMatchesFrameProps(BaseModel):
@@ -24,3 +26,5 @@ class GroundTruthDetectionMatchesFrameProps(BaseModel):
     target_id: int
     target_index: Optional[float]
     iou: Optional[float]
+    emmbedding_distance: Optional[float]
+    mahalanobis_distance: Optional[float]
