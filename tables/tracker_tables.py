@@ -59,6 +59,7 @@ class TargetFrameEval(Base):
     target_id = Column(Integer)
     tracker_id = Column(Integer)
     iou = Column(Float)
+    emmbedding_distance = Column(Float(10, 8))
 
 
 class TargetFrameEvalProps(BaseModel):
@@ -68,6 +69,7 @@ class TargetFrameEvalProps(BaseModel):
     target_id: Optional[int]
     tracker_id: Optional[int]
     iou: Optional[float]
+    emmbedding_distance: Optional[float]
 
     class Config:
         orm_mode = True
