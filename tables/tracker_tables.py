@@ -26,6 +26,8 @@ class Trackers(Base):
     kalman_height = Column(Float)
     track_status = Column(Integer)
     embedding = Column(ARRAY(FLOAT))
+    embedding_distance = Column(Float(10, 8))
+    mahalanobis_distance = Column(Float(16, 8))
 
 
 class TrackersProps(BaseModel):
@@ -44,6 +46,8 @@ class TrackersProps(BaseModel):
     kalman_height: Optional[float]
     track_status: Optional[int]
     embedding: Optional[List[float]]
+    embedding_distance: Optional[float]
+    mahalanobis_distance: Optional[float]
 
     class Config:
         orm_mode = True
@@ -59,7 +63,6 @@ class TargetFrameEval(Base):
     target_id = Column(Integer)
     tracker_id = Column(Integer)
     iou = Column(Float)
-    embedding_distance = Column(Float(10, 8))
 
 
 class TargetFrameEvalProps(BaseModel):
@@ -69,7 +72,6 @@ class TargetFrameEvalProps(BaseModel):
     target_id: Optional[int]
     tracker_id: Optional[int]
     iou: Optional[float]
-    embedding_distance: Optional[float]
 
     class Config:
         orm_mode = True
