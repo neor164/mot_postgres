@@ -246,6 +246,13 @@ class DatabaseCreator:
 
         return pd.read_sql(resp.statement, self.engine)
 
+    def get_distances_by_scenario(self, run_id, scenario_name: str):
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        resp = self.session.query(Trackers.frame_id, Trackers.tracker_id, Trackers.target_index,  Trackers.embedding_distance.label('embedding_distance'), Trackers.mahalanobis_distance.label('mahalanobis_distance')).filter(
+            Trackers.scenario_id == subquery, Trackers.run_id == run_id)
+        return pd.read_sql(resp.statement, self.engine)
+
     def get_kalman_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
