@@ -33,7 +33,7 @@ class Trackers(Base):
 class TrackerDistances(Base):
     __tablename__ = "tracker_distances"
     __table_args__ = (PrimaryKeyConstraint(
-        'run_id',  'scenario_id', 'frame_id'))
+        'run_id',  'scenario_id', 'frame_id'),)
     scenario_id = Column(Integer, ForeignKey('scenarios.id'))
     run_id = Column(Integer,  ForeignKey('run.id'))
     frame_id = Column(Integer)
