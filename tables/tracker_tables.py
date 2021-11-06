@@ -26,8 +26,19 @@ class Trackers(Base):
     kalman_height = Column(Float)
     track_status = Column(Integer)
     embedding = Column(ARRAY(FLOAT))
-    embedding_distance = Column(Float(10, 8))
-    mahalanobis_distance = Column(Float(16, 8))
+    embedding_distance = Float
+    mahalanobis_distance = Float
+
+
+class TrackerDistances(Base):
+    __tablename__ = "tracker_distances"
+    __table_args__ = (PrimaryKeyConstraint(
+        'run_id',  'scenario_id', 'frame_id'))
+    scenario_id = Column(Integer, ForeignKey('scenarios.id'))
+    run_id = Column(Integer,  ForeignKey('run.id'))
+    frame_id = Column(Integer)
+    embedding_distance = Column(ARRAY(FLOAT))
+    mahalanobis_distance = Column(ARRAY(FLOAT))
 
 
 class TrackersProps(BaseModel):

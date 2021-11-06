@@ -567,6 +567,23 @@ class DatabaseCreator:
         self.session.execute(stmt)
         self.session.commit()
 
+    def upsert_bulk_distances_data(self,  gt_eval_list: List[dict]):
+        stmt = insert(GroundTruthDetectionMatchesFrame).values(
+            gt_eval_list)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['scenario_id', 'run_id',
+                            'frame_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "embedding_distance": stmt.excluded.embedding_distance,
+                "mahalanobis_distance": stmt.excluded.mahalanobis_distance,
+
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
     def upsert_bulk_gt_match_detector_frame_eval_data(self,  gt_eval_list: List[dict]):
         stmt = insert(GroundTruthDetectionMatchesFrame).values(
             gt_eval_list)
