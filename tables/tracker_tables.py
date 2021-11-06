@@ -26,8 +26,8 @@ class Trackers(Base):
     kalman_height = Column(Float)
     track_status = Column(Integer)
     embedding = Column(ARRAY(FLOAT))
-    embedding_distance = Float
-    mahalanobis_distance = Float
+    embedding_distance = Column(Float)
+    mahalanobis_distance = Column(Float)
 
 
 class TrackerDistances(Base):
