@@ -1,5 +1,5 @@
 from .tables.eval_tables import GroundTruthDetectionMatchesFrame
-from .tables.tracker_tables import TargetFrameEvalProps, TrackerEvalProps, Trackers, TargetFrameEval, TrackerEval, TrackerScenarioEval, TrackersProps
+from .tables.tracker_tables import TargetFrameEvalProps, TrackerDistances, TrackerEvalProps, Trackers, TargetFrameEval, TrackerEval, TrackerScenarioEval, TrackersProps
 from typing import Optional, List, Dict, Set
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import Session
@@ -232,6 +232,15 @@ class DatabaseCreator:
             GroundTruth.scenario_id == subquery, GroundTruth.target_id == target_id).first()
         if query:
             return query[0]
+
+    def get_all_distances_vector_by_scenario(self, run_id: int, scenario_name: str) -> pd.DataFrame:
+
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(TrackerDistances).filter(TrackerDistances.run_id == 3,
+                                                           TrackerDistances.scenario_id == subquery)
+        return pd.read_sql(resp.statement, self.engine)
 
     def get_detection_table_by_frame(self, run_id: int, scenario_name: str, frame_id: int, confidance: Optional[float] = None) -> pd.DataFrame:
 
@@ -568,7 +577,7 @@ class DatabaseCreator:
         self.session.commit()
 
     def upsert_bulk_distances_data(self,  gt_eval_list: List[dict]):
-        stmt = insert(GroundTruthDetectionMatchesFrame).values(
+        stmt = insert(TrackerDistances).values(
             gt_eval_list)
         stmt = stmt.on_conflict_do_update(
             index_elements=['scenario_id', 'run_id',
