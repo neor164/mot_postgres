@@ -540,8 +540,8 @@ class DatabaseCreator:
                 "width": stmt.excluded.width,
                 "height": stmt.excluded.height,
                 "embedding": stmt.excluded.embedding,
-                "embedding_distance": stmt.excluded.embedding,
-                "mahalanobis_distance": stmt.excluded.embedding,
+                "embedding_distance": stmt.excluded.embedding_distance,
+                "mahalanobis_distance": stmt.excluded.mahalanobis_distance,
             }
         )
         self.session.execute(stmt)
