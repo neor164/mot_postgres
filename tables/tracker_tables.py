@@ -39,8 +39,8 @@ class TrackerDistances(Base):
     frame_id = Column(Integer)
     target_id = Column(Integer)
     target_index = Column(Integer)
-    embedding_distance = Column(ARRAY(FLOAT))
-    mahalanobis_distance = Column(ARRAY(FLOAT))
+    embedding_distance = Column(FLOAT)
+    mahalanobis_distance = Column(FLOAT)
 
 
 class TrackersProps(BaseModel):
