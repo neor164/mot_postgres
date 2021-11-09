@@ -581,7 +581,7 @@ class DatabaseCreator:
             gt_eval_list)
         stmt = stmt.on_conflict_do_update(
             index_elements=['scenario_id', 'run_id',
-                            'frame_id'],
+                            'frame_id', 'target_id', 'target_index'],
 
             # The columns that should be updated on conflict
             set_={
