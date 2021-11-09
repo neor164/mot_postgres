@@ -30,8 +30,7 @@ class DatabaseEvaluator:
             "FN": 0,
             "Recall":  0.0,
             "Precision": 0.0,
-            "confidance_level": self.database.get_confidance_by_run_id(
-                run_id)
+            "confidance_level": 0.6
         }
         gtdm_list: List[dict] = []
 
@@ -53,7 +52,7 @@ class DatabaseEvaluator:
             return eval_dict, None
 
         bb1 = gt.values[:, 1:-2]
-        bb2 = dt.values[:, 4:-1]
+        bb2 = dt.values[:, 4:-2]
         sim_mat = calculate_similarity_matrix(bb1, bb2)
         cost_matrix_object = CostMatrix(
             cost_matrix=-sim_mat, ground_truth_ids=gt['target_id'], prediction_ids=dt['target_index'])
