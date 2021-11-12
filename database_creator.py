@@ -610,6 +610,22 @@ class DatabaseCreator:
         self.session.execute(stmt)
         self.session.commit()
 
+    def upsert_bulk_gt_match_tracker_frame_eval_data(self,  gt_eval_list: List[dict]):
+        stmt = insert(GroundTruthDetectionMatchesFrame).values(
+            gt_eval_list)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['scenario_id', 'run_id',
+                            'frame_id', 'target_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "tracker_id": stmt.excluded.tracker_id,
+                "iou_tracker": stmt.excluded.iou_tracker,
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
     def upsert_bulk_tracker_eval_data(self,  detector_eval_list: List[dict]):
 
         stmt = insert(TrackerEval).values(detector_eval_list)
@@ -688,6 +704,35 @@ class DatabaseCreator:
                 Trackers.run_id == run_id, Trackers.target_index.is_(None), Trackers.scenario_id == subquery)
         return pd.read_sql(query.statement, self.engine)
 
+    def get_distances_for_matched(self, run_id: int, scenario_name: str):
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        query = self.session.query(TrackerDistances.frame_id, GroundTruthDetectionMatchesFrame.target_id.label('gt_id'), TrackerDistances.target_id,
+                                   TrackerDistances.mahalanobis_distance, TrackerDistances.embedding_distance).filter(TrackerDistances.run_id == run_id, TrackerDistances.scenario_id == subquery,).join(GroundTruthDetectionMatchesFrame,
+                                                                                                                                                                                                         and_(GroundTruthDetectionMatchesFrame.run_id == TrackerDistances.run_id,
+                                                                                                                                                                                                              GroundTruthDetectionMatchesFrame.scenario_id == TrackerDistances.scenario_id,
+                                                                                                                                                                                                              GroundTruthDetectionMatchesFrame.frame_id == TrackerDistances.frame_id,
+                                                                                                                                                                                                              GroundTruthDetectionMatchesFrame.tracker_id == TrackerDistances.target_id,
+                                                                                                                                                                                                              GroundTruthDetectionMatchesFrame.target_index == TrackerDistances.target_index,
+                                                                                                                                                                                                              ))
+
+        return pd.read_sql(query.statement, self.engine)
+
+    def get_distances_for_matched_by_challenge(self, run_id: int, challenge: str):
+
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.source) == challenge.lower()).subquery()
+        query = self.session.query(TrackerDistances.frame_id, GroundTruthDetectionMatchesFrame.target_id.label('gt_id'), TrackerDistances.target_id,
+                                   TrackerDistances.mahalanobis_distance, TrackerDistances.embedding_distance).filter(TrackerDistances.run_id == run_id, TrackerDistances.scenario_id.in_(subquery)).join(GroundTruthDetectionMatchesFrame,
+                                                                                                                                                                                                          and_(GroundTruthDetectionMatchesFrame.run_id == TrackerDistances.run_id,
+                                                                                                                                                                                                               GroundTruthDetectionMatchesFrame.scenario_id == TrackerDistances.scenario_id,
+                                                                                                                                                                                                               GroundTruthDetectionMatchesFrame.frame_id == TrackerDistances.frame_id,
+                                                                                                                                                                                                               GroundTruthDetectionMatchesFrame.tracker_id == TrackerDistances.target_id,
+                                                                                                                                                                                                               GroundTruthDetectionMatchesFrame.target_index == TrackerDistances.target_index,
+                                                                                                                                                                                                               ))
+
+        return pd.read_sql(query.statement, self.engine)
+
     def get_distances_for_unmatched(self, run_id: int, scenario_name: str):
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
@@ -701,6 +746,12 @@ class DatabaseCreator:
             TrackerDistances.run_id == run_id, TrackerDistances.scenario_id == subquery, Trackers.target_index != TrackerDistances.target_index
         )
         return pd.read_sql(query.statement, self.engine)
+
+    def get_all_distances_by_scenario(self, run_id: int, scenario_name: str):
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        query = self.session.query(TrackerDistances.frame_id, TrackerDistances.target_id,
+                                   TrackerDistances.mahalanobis_distance, TrackerDistances.embedding_distance).filter(Trackers.run_id == run_id, TrackerDistances.scenario_id == subquery)
 
 
 if __name__ == '__main__':
