@@ -706,7 +706,7 @@ class DatabaseCreator:
 
     def get_distances_for_matched(self, run_id: int, scenario_name: str):
         subquery = self.session.query(Scenarios.id).filter(
-            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+            func.lower(Scenarios.name) == scenario_name.lower()).subquery()
         query = self.session.query(TrackerDistances.frame_id, GroundTruthDetectionMatchesFrame.target_id.label('gt_id'), TrackerDistances.target_id,
                                    TrackerDistances.mahalanobis_distance, TrackerDistances.embedding_distance).filter(TrackerDistances.run_id == run_id, TrackerDistances.scenario_id == subquery,).join(GroundTruthDetectionMatchesFrame,
                                                                                                                                                                                                          and_(GroundTruthDetectionMatchesFrame.run_id == TrackerDistances.run_id,
