@@ -192,10 +192,10 @@ class DatabaseEvaluator:
 
             elif tid is not None and tfep.tracker_id is None:
                 tep.Frag += 1
-            target_frame_eval_list.append(tfep.dict())
+            # target_frame_eval_list.append(tfep.dict())
 
-        self.database.upsert_bulk_target_frame_eval_props(
-            target_frame_eval_list)
+        # self.database.upsert_bulk_target_frame_eval_props(
+        #     target_frame_eval_list)
 
         tep.TP = len(matched_predition)
         tep.FP = len(unmatched_prediction)

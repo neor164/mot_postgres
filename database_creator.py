@@ -100,11 +100,11 @@ class DatabaseCreator:
                 gt_list.append(GroundTruthProps.from_orm(gt))
             return gt_list
 
-    def get_ground_truth_by_scenario_name(self, scenario_name: str) -> Optional[List[GroundTruth]]:
+    def get_ground_truth_by_scenario_name(self, scenario_name: str, valid: bool = True) -> Optional[List[GroundTruth]]:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
         resp = self.session.query(GroundTruth).filter(
-            GroundTruth.scenario_id == subquery).all()
+            GroundTruth.scenario_id == subquery, GroundTruth.is_valid.is_(valid)).all()
         return resp
 
     def add_detector(self, detector_name: str) -> int:
@@ -355,6 +355,15 @@ class DatabaseCreator:
 
         return pd.read_sql(resp.statement, self.engine)
 
+    def get_tracker_eval_by_scenario_table(self, run_id: int, scenario_name: str) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(TrackerEval).filter(
+            TrackerEval.scenario_id == subquery, TrackerEval.run_id == run_id)
+
+        return pd.read_sql(resp.statement, self.engine)
+
     def get_tracker_eval_by_scenario(self, run_id: int, scenario_name: str):
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
@@ -442,15 +451,55 @@ class DatabaseCreator:
             GroundTruthDetectionMatchesFrame.scenario_id == subquery, GroundTruthDetectionMatchesFrame.run_id == run_id)
         return pd.read_sql(query.statement, self.engine)
 
+    def get_detection_matches_by_scenario_and_frame(self, run_id: int, scenario_name: str, frame_id: int) -> pd.DataFrame:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        query = self.session.query(GroundTruthDetectionMatchesFrame).filter(
+            GroundTruthDetectionMatchesFrame.scenario_id == subquery, GroundTruthDetectionMatchesFrame.run_id == run_id,
+            GroundTruthDetectionMatchesFrame.frame_id == frame_id)
+        return pd.read_sql(query.statement, self.engine)
+
     def get_previous_match_by_frame_and_id(self, run_id: int, scenario_name: str, frame_id: int, target_id: int) -> Optional[int]:
         subquery = self.session.query(Scenarios.id).filter(
             func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
 
-        resp = self.session.query(TargetFrameEval.tracker_id).filter(
-            TargetFrameEval.scenario_id == subquery, TargetFrameEval.frame_id < frame_id, TargetFrameEval.run_id == run_id, TargetFrameEval.target_id == target_id, TargetFrameEval.tracker_id != None).limit(1).first()
+        resp = self.session.query(GroundTruthDetectionMatchesFrame.tracker_id).filter(
+            GroundTruthDetectionMatchesFrame.scenario_id == subquery, GroundTruthDetectionMatchesFrame.frame_id < frame_id, GroundTruthDetectionMatchesFrame.run_id == run_id, GroundTruthDetectionMatchesFrame.target_id == target_id, GroundTruthDetectionMatchesFrame.tracker_id != None).limit(1).first()
 
         if resp is not None:
             return resp[0]
+
+    def check_if_switched_id(self, run_id: int, scenario_name: str, frame_id: int, tracker_id: int) -> bool:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        subquery_2 = self.session.query(GroundTruthDetectionMatchesFrame.target_id).filter(
+            GroundTruthDetectionMatchesFrame.scenario_id == subquery, GroundTruthDetectionMatchesFrame.frame_id == frame_id, GroundTruthDetectionMatchesFrame.run_id == run_id, GroundTruthDetectionMatchesFrame.tracker_id == tracker_id).scalar_subquery()
+
+        resp = self.session.query(GroundTruthDetectionMatchesFrame.tracker_id).filter(
+            GroundTruthDetectionMatchesFrame.scenario_id == subquery, GroundTruthDetectionMatchesFrame.frame_id < frame_id, GroundTruthDetectionMatchesFrame.run_id == run_id, GroundTruthDetectionMatchesFrame.target_id == subquery_2, GroundTruthDetectionMatchesFrame.tracker_id != None).order_by(GroundTruthDetectionMatchesFrame.frame_id.desc()).limit(1).first()
+        if resp is not None:
+            return resp[0] != tracker_id
+        else:
+            return False
+
+    def check_if_tracker_still_exist(self, run_id: int, scenario_name: str, frame_id: int, tracker_id: int) -> bool:
+
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(Trackers).filter(Trackers.run_id == run_id, Trackers.scenario_id == subquery, Trackers.frame_id >= frame_id,
+                                                   Trackers.tracker_id == tracker_id).first()
+        return resp is not None
+
+    def check_if_tracker_new(self, run_id: int, scenario_name: str, frame_id: int, tracker_id: int) -> bool:
+
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+
+        resp = self.session.query(Trackers).filter(Trackers.run_id == run_id, Trackers.scenario_id == subquery, Trackers.frame_id < frame_id,
+                                                   Trackers.tracker_id == tracker_id).first()
+        return resp is None
 
     def add_run(self, detector_name: str, comment: str = None) -> int:
         run = Run()
