@@ -58,3 +58,13 @@ class DetectionsFrameEval(Base):
     FN = Column(Integer)
     Recall = Column(Float)
     Precision = Column(Float)
+
+
+class DetectorFrame(Base):
+    __tablename__ = "detections_frame"
+    __table_args__ = (PrimaryKeyConstraint('scenario_id', 'run_id',
+                                           'frame_id'),)
+    run_id = Column(Integer,  ForeignKey('run.id'))
+    scenario_id = Column(Integer, ForeignKey('scenarios.id'))
+    frame_id = Column(Integer)
+    embedding = Column(ARRAY(FLOAT))
