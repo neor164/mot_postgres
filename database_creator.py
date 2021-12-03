@@ -556,6 +556,23 @@ class DatabaseCreator:
         self.session.execute(stmt)
         self.session.commit()
 
+    def upsert_bulk_detection_frame(self, detections_list: List[dict]):
+
+        # Prepare all the values that should be "upserted" to the DB
+
+        stmt = insert(Detections).values(detections_list)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[
+                'scenario_id', 'run_id', 'frame_id'],
+
+            # The columns that should be updated on conflict
+            set_={
+                "embedding": stmt.excluded.embedding,
+            }
+        )
+        self.session.execute(stmt)
+        self.session.commit()
+
     def upsert_bulk_kalman(self, kalman_list: List[dict]):
 
         stmt = insert(Trackers).values(kalman_list)
