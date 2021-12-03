@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import Session, query
 from sqlalchemy.dialects.postgresql import insert
 from .tables.ground_truth_tables import GroundTruth, GroundTruthProps, Scenarios, ScenatioProps, TargetTypes
-from .tables.detector_tables import Detections, DetectionsFrameEval, Detectors, DetectionsProps
+from .tables.detector_tables import Detections, DetectionsFrameEval, DetectorFrame, Detectors, DetectionsProps
 from .tables.run_tables import Run
 from pydantic import BaseModel
 from sqlalchemy.sql import select
@@ -106,6 +106,14 @@ class DatabaseCreator:
         resp = self.session.query(GroundTruth).filter(
             GroundTruth.scenario_id == subquery, GroundTruth.is_valid.is_(valid)).all()
         return resp
+
+    def get_detector_feature_map(self, run_id: int, scenario_name: str, frame_id: int) -> Optional[List[GroundTruth]]:
+        subquery = self.session.query(Scenarios.id).filter(
+            func.lower(Scenarios.name) == scenario_name.lower()).scalar_subquery()
+        resp = self.session.query(DetectorFrame).filter(DetectorFrame.run_id == run_id,
+                                                        DetectorFrame.scenario_id == subquery, DetectorFrame.frame_id == frame_id).first()
+        if resp:
+            return resp[0]
 
     def add_detector(self, detector_name: str) -> int:
         resp = self.session.query(Detectors.id).filter(
@@ -560,7 +568,7 @@ class DatabaseCreator:
 
         # Prepare all the values that should be "upserted" to the DB
 
-        stmt = insert(Detections).values(detections_list)
+        stmt = insert(DetectorFrame).values(detections_list)
         stmt = stmt.on_conflict_do_update(
             index_elements=[
                 'scenario_id', 'run_id', 'frame_id'],
